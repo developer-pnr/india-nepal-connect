@@ -1,0 +1,126 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+
+const COLORS = ["hsl(160,60%,38%)", "hsl(38,92%,50%)", "hsl(220,14%,46%)", "hsl(0,72%,51%)", "hsl(280,60%,50%)", "hsl(200,60%,50%)"];
+
+export default function Reports() {
+  const [txns, setTxns] = useState<any[]>([]);
+  const [reportType, setReportType] = useState("monthly");
+
+  useEffect(() => {
+    supabase.from("transactions").select("*").order("transaction_date").then(({ data }) => setTxns(data ?? []));
+  }, []);
+
+  // Monthly volume
+  const monthlyData: Record<string, { inr: number; npr: number; commission: number; count: number }> = {};
+  txns.forEach((t) => {
+    const m = t.transaction_date?.slice(0, 7) ?? "unknown";
+    if (!monthlyData[m]) monthlyData[m] = { inr: 0, npr: 0, commission: 0, count: 0 };
+    monthlyData[m].inr += Number(t.amount_inr);
+    monthlyData[m].npr += Number(t.amount_npr);
+    monthlyData[m].commission += Number(t.commission);
+    monthlyData[m].count++;
+  });
+  const monthlyChart = Object.entries(monthlyData).map(([month, d]) => ({ month, ...d }));
+
+  // Payment method distribution
+  const methodData: Record<string, number> = {};
+  txns.forEach((t) => { methodData[t.payment_method] = (methodData[t.payment_method] ?? 0) + 1; });
+  const pieData = Object.entries(methodData).map(([name, value]) => ({ name: name.replace("_", " "), value }));
+
+  const exportCSV = () => {
+    const headers = "Date,Sender ID,Receiver ID,INR,NPR,Commission,Method,Status\n";
+    const rows = txns.map((t) =>
+      `${t.transaction_date},${t.sender_id},${t.receiver_id},${t.amount_inr},${t.amount_npr},${t.commission},${t.payment_method},${t.status}`
+    ).join("\n");
+    const blob = new Blob([headers + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `report-${reportType}-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
+          <p className="text-sm text-muted-foreground">{txns.length} transactions analyzed</p>
+        </div>
+        <div className="flex gap-2">
+          <Select value={reportType} onValueChange={setReportType}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-1" /> Export CSV
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">Remittance Volume</CardTitle></CardHeader>
+          <CardContent>
+            {monthlyChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyChart}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="month" className="text-xs fill-muted-foreground" />
+                  <YAxis className="text-xs fill-muted-foreground" />
+                  <Tooltip />
+                  <Bar dataKey="inr" fill={COLORS[0]} name="INR" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="commission" fill={COLORS[1]} name="Commission" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">No data</div>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-medium">Payment Methods</CardTitle></CardHeader>
+          <CardContent>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={(e) => e.name}>
+                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">No data</div>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm font-medium">Profit Summary</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Total INR</p>
+              <p className="text-xl font-bold font-mono text-primary">₹{txns.reduce((s, t) => s + Number(t.amount_inr), 0).toLocaleString("en-IN")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total NPR</p>
+              <p className="text-xl font-bold font-mono">रू{txns.reduce((s, t) => s + Number(t.amount_npr), 0).toLocaleString("en-IN")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Commission</p>
+              <p className="text-xl font-bold font-mono text-accent">₹{txns.reduce((s, t) => s + Number(t.commission), 0).toLocaleString("en-IN")}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
