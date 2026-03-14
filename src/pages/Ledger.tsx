@@ -17,7 +17,7 @@ export default function Ledger() {
   useEffect(() => {
     const fetch = async () => {
       let q = supabase.from("ledger_entries").select("*").order("created_at", { ascending: false }).limit(200);
-      if (filter !== "all") q = q.eq("account", filter);
+      if (filter !== "all") q = q.eq("account", filter as LedgerAccount);
       const { data } = await q;
       setEntries(data ?? []);
     };
