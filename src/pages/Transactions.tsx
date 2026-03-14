@@ -1,0 +1,219 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Search } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
+
+type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
+type Sender = Database["public"]["Tables"]["senders"]["Row"];
+type Receiver = Database["public"]["Tables"]["receivers"]["Row"];
+type PaymentMethod = Database["public"]["Enums"]["payment_method"];
+type TxStatus = Database["public"]["Enums"]["transaction_status"];
+
+const paymentMethods: PaymentMethod[] = ["cash", "bank_transfer", "esewa", "khalti", "ime", "other"];
+const statuses: TxStatus[] = ["pending", "paid", "cancelled"];
+
+export default function Transactions() {
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  const [senders, setSenders] = useState<Sender[]>([]);
+  const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [open, setOpen] = useState(false);
+  const [todayRate, setTodayRate] = useState<number>(0);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [form, setForm] = useState({
+    sender_id: "", receiver_id: "", amount_inr: "", commission: "0",
+    payment_method: "cash" as PaymentMethod, notes: "",
+  });
+
+  const amountNpr = todayRate && form.amount_inr ? (parseFloat(form.amount_inr) * todayRate).toFixed(2) : "0.00";
+
+  const fetchAll = async () => {
+    const [t, s, r, rate] = await Promise.all([
+      supabase.from("transactions").select("*").order("created_at", { ascending: false }),
+      supabase.from("senders").select("*").order("name"),
+      supabase.from("receivers").select("*").order("name"),
+      supabase.from("daily_rates").select("inr_to_npr").order("rate_date", { ascending: false }).limit(1).single(),
+    ]);
+    setTxns(t.data ?? []);
+    setSenders(s.data ?? []);
+    setReceivers(r.data ?? []);
+    setTodayRate(rate.data?.inr_to_npr ?? 0);
+  };
+
+  useEffect(() => { fetchAll(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.sender_id || !form.receiver_id || !form.amount_inr) {
+      toast({ title: "Fill required fields", variant: "destructive" }); return;
+    }
+    if (!todayRate) {
+      toast({ title: "No exchange rate set", description: "Admin must set today's rate first.", variant: "destructive" }); return;
+    }
+
+    const { error } = await supabase.from("transactions").insert({
+      sender_id: form.sender_id,
+      receiver_id: form.receiver_id,
+      amount_inr: parseFloat(form.amount_inr),
+      exchange_rate: todayRate,
+      amount_npr: parseFloat(amountNpr),
+      commission: parseFloat(form.commission) || 0,
+      payment_method: form.payment_method,
+      notes: form.notes || null,
+      created_by: user?.id,
+    });
+
+    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
+
+    setOpen(false);
+    setForm({ sender_id: "", receiver_id: "", amount_inr: "", commission: "0", payment_method: "cash", notes: "" });
+    fetchAll();
+    toast({ title: "Transaction created" });
+  };
+
+  const updateStatus = async (id: string, status: TxStatus) => {
+    const { error } = await supabase.from("transactions").update({ status }).eq("id", id);
+    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
+    fetchAll();
+  };
+
+  const senderMap = Object.fromEntries(senders.map((s) => [s.id, s.name]));
+  const receiverMap = Object.fromEntries(receivers.map((r) => [r.id, r.name]));
+
+  const filtered = txns.filter((t) => {
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    const s = senderMap[t.sender_id]?.toLowerCase() ?? "";
+    const r = receiverMap[t.receiver_id]?.toLowerCase() ?? "";
+    const q = search.toLowerCase();
+    return s.includes(q) || r.includes(q) || t.id.includes(q);
+  });
+
+  const statusColor = (s: TxStatus) => s === "paid" ? "default" : s === "pending" ? "secondary" : "destructive";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
+          <p className="text-sm text-muted-foreground">
+            {txns.length} transactions • Rate: {todayRate ? `1 INR = ${todayRate} NPR` : "Not set"}
+          </p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus className="h-4 w-4 mr-1" /> New Transaction</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Create Transaction</DialogTitle></DialogHeader>
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+              <div>
+                <Label>Sender *</Label>
+                <Select value={form.sender_id} onValueChange={(v) => setForm({ ...form, sender_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select sender" /></SelectTrigger>
+                  <SelectContent>{senders.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Receiver *</Label>
+                <Select value={form.receiver_id} onValueChange={(v) => setForm({ ...form, receiver_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select receiver" /></SelectTrigger>
+                  <SelectContent>{receivers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Amount (INR) *</Label>
+                <Input type="number" value={form.amount_inr} onChange={(e) => setForm({ ...form, amount_inr: e.target.value })} placeholder="10000" />
+              </div>
+              <div className="bg-muted/50 p-3 rounded-md border">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Exchange Rate</span>
+                  <span className="font-mono">{todayRate || "—"}</span>
+                </div>
+                <div className="flex justify-between text-sm mt-1">
+                  <span className="text-muted-foreground">Amount (NPR)</span>
+                  <span className="font-mono font-bold text-primary text-lg">{amountNpr !== "0.00" ? `रू${parseFloat(amountNpr).toLocaleString("en-IN")}` : "—"}</span>
+                </div>
+              </div>
+              <div><Label>Commission (INR)</Label><Input type="number" value={form.commission} onChange={(e) => setForm({ ...form, commission: e.target.value })} /></div>
+              <div>
+                <Label>Payment Method</Label>
+                <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v as PaymentMethod })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{paymentMethods.map((m) => <SelectItem key={m} value={m}>{m.replace("_", " ").toUpperCase()}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+              <Button onClick={handleCreate} className="w-full">Create Transaction</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            {statuses.map((s) => <SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Sender</TableHead>
+              <TableHead>Receiver</TableHead>
+              <TableHead className="text-right">INR</TableHead>
+              <TableHead className="text-right">NPR</TableHead>
+              <TableHead>Method</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
+            ) : filtered.map((t) => (
+              <TableRow key={t.id}>
+                <TableCell className="font-mono text-xs">{t.transaction_date}</TableCell>
+                <TableCell className="font-medium text-sm">{senderMap[t.sender_id] ?? "—"}</TableCell>
+                <TableCell className="text-sm">{receiverMap[t.receiver_id] ?? "—"}</TableCell>
+                <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
+                <TableCell className="text-right font-mono text-sm text-primary">रू{Number(t.amount_npr).toLocaleString("en-IN")}</TableCell>
+                <TableCell><span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{t.payment_method.replace("_", " ")}</span></TableCell>
+                <TableCell><Badge variant={statusColor(t.status)}>{t.status}</Badge></TableCell>
+                <TableCell>
+                  {t.status === "pending" && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => updateStatus(t.id, "paid")}>Pay</Button>
+                      <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateStatus(t.id, "cancelled")}>Cancel</Button>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {txns.length}</p>
+    </div>
+  );
+}
