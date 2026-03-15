@@ -14,6 +14,7 @@ type DailyRate = Database["public"]["Tables"]["daily_rates"]["Row"];
 export default function Rates() {
   const [rates, setRates] = useState<DailyRate[]>([]);
   const [newRate, setNewRate] = useState("");
+  const [newCommRate, setNewCommRate] = useState("30");
   const [newDate, setNewDate] = useState(new Date().toISOString().split("T")[0]);
   const { hasRole, user } = useAuth();
   const { toast } = useToast();
@@ -28,7 +29,7 @@ export default function Rates() {
   const handleSet = async () => {
     if (!newRate) return;
     const { error } = await supabase.from("daily_rates").upsert(
-      { rate_date: newDate, inr_to_npr: parseFloat(newRate), set_by: user?.id },
+      { rate_date: newDate, inr_to_npr: parseFloat(newRate), commission_rate_npr_per_1000: parseFloat(newCommRate) || 30, set_by: user?.id },
       { onConflict: "rate_date" }
     );
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
@@ -43,10 +44,10 @@ export default function Rates() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Exchange Rates</h1>
-        <p className="text-sm text-muted-foreground">INR → NPR daily rates</p>
+        <p className="text-sm text-muted-foreground">INR → NPR daily rates & commission config</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Current Rate</CardTitle>
@@ -59,6 +60,18 @@ export default function Rates() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Commission Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold font-mono text-accent">
+              {latest ? `रू${latest.commission_rate_npr_per_1000}` : "—"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Per NPR 1,000</p>
+          </CardContent>
+        </Card>
+
         {hasRole("admin") && (
           <Card>
             <CardHeader className="pb-2">
@@ -67,6 +80,7 @@ export default function Rates() {
             <CardContent className="space-y-3">
               <div><Label>Date</Label><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} /></div>
               <div><Label>Rate (NPR per 1 INR)</Label><Input type="number" step="0.0001" value={newRate} onChange={(e) => setNewRate(e.target.value)} placeholder="1.6000" /></div>
+              <div><Label>Commission (NPR per 1000)</Label><Input type="number" step="1" value={newCommRate} onChange={(e) => setNewCommRate(e.target.value)} placeholder="30" /></div>
               <Button onClick={handleSet} size="sm" className="w-full">Set Rate</Button>
             </CardContent>
           </Card>
@@ -79,15 +93,17 @@ export default function Rates() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">INR → NPR</TableHead>
+              <TableHead className="text-right">Commission (रू/1000)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rates.length === 0 ? (
-              <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-8">No rates set</TableCell></TableRow>
+              <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">No rates set</TableCell></TableRow>
             ) : rates.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono text-sm">{r.rate_date}</TableCell>
                 <TableCell className="text-right font-mono font-medium">{r.inr_to_npr}</TableCell>
+                <TableCell className="text-right font-mono text-sm text-accent">{r.commission_rate_npr_per_1000}</TableCell>
               </TableRow>
             ))}
           </TableBody>

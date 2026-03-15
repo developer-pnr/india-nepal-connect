@@ -7,7 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface Metrics {
   totalInr: number;
   totalNpr: number;
-  totalCommission: number;
+  totalCommissionInr: number;
+  totalCommissionNpr: number;
   pendingCount: number;
   todayCount: number;
   totalCount: number;
@@ -15,24 +16,26 @@ interface Metrics {
 
 export default function Index() {
   const [metrics, setMetrics] = useState<Metrics>({
-    totalInr: 0, totalNpr: 0, totalCommission: 0, pendingCount: 0, todayCount: 0, totalCount: 0,
+    totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0, pendingCount: 0, todayCount: 0, totalCount: 0,
   });
   const [chartData, setChartData] = useState<{ month: string; volume: number }[]>([]);
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      const { data: txns } = await supabase.from("transactions").select("amount_inr, amount_npr, commission, status, transaction_date");
+      const { data: txns } = await supabase.from("transactions").select("amount_inr, amount_npr, commission, commission_npr, status, transaction_date, exchange_rate");
       if (!txns) return;
 
       const today = new Date().toISOString().split("T")[0];
-      const m: Metrics = { totalInr: 0, totalNpr: 0, totalCommission: 0, pendingCount: 0, todayCount: 0, totalCount: txns.length };
+      const m: Metrics = { totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0, pendingCount: 0, todayCount: 0, totalCount: txns.length };
 
       const monthMap: Record<string, number> = {};
 
       txns.forEach((t) => {
         m.totalInr += Number(t.amount_inr);
         m.totalNpr += Number(t.amount_npr);
-        m.totalCommission += Number(t.commission);
+        m.totalCommissionInr += Number(t.commission);
+        const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
+        m.totalCommissionNpr += commNpr;
         if (t.status === "pending") m.pendingCount++;
         if (t.transaction_date === today) m.todayCount++;
 
@@ -55,7 +58,8 @@ export default function Index() {
   const cards = [
     { title: "Total INR Received", value: `₹${metrics.totalInr.toLocaleString("en-IN")}`, icon: IndianRupee, color: "text-primary" },
     { title: "Total NPR Paid", value: `रू${metrics.totalNpr.toLocaleString("en-IN")}`, icon: Banknote, color: "text-accent" },
-    { title: "Commission Earned", value: `₹${metrics.totalCommission.toLocaleString("en-IN")}`, icon: ArrowLeftRight, color: "text-success" },
+    { title: "Commission (INR)", value: `₹${metrics.totalCommissionInr.toLocaleString("en-IN")}`, icon: ArrowLeftRight, color: "text-success" },
+    { title: "Commission (NPR)", value: `रू${metrics.totalCommissionNpr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: ArrowLeftRight, color: "text-accent" },
     { title: "Pending Payments", value: metrics.pendingCount.toString(), icon: Clock, color: "text-warning" },
   ];
 
@@ -68,7 +72,7 @@ export default function Index() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {cards.map((c) => (
           <Card key={c.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">

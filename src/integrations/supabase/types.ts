@@ -46,6 +46,7 @@ export type Database = {
       }
       daily_rates: {
         Row: {
+          commission_rate_npr_per_1000: number
           created_at: string
           id: string
           inr_to_npr: number
@@ -53,6 +54,7 @@ export type Database = {
           set_by: string | null
         }
         Insert: {
+          commission_rate_npr_per_1000?: number
           created_at?: string
           id?: string
           inr_to_npr: number
@@ -60,6 +62,7 @@ export type Database = {
           set_by?: string | null
         }
         Update: {
+          commission_rate_npr_per_1000?: number
           created_at?: string
           id?: string
           inr_to_npr?: number
@@ -221,6 +224,7 @@ export type Database = {
           amount_inr: number
           amount_npr: number
           commission: number
+          commission_npr: number
           created_at: string
           created_by: string | null
           exchange_rate: number
@@ -237,6 +241,7 @@ export type Database = {
           amount_inr: number
           amount_npr: number
           commission?: number
+          commission_npr?: number
           created_at?: string
           created_by?: string | null
           exchange_rate: number
@@ -253,6 +258,7 @@ export type Database = {
           amount_inr?: number
           amount_npr?: number
           commission?: number
+          commission_npr?: number
           created_at?: string
           created_by?: string | null
           exchange_rate?: number
