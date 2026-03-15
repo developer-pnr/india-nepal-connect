@@ -29,27 +29,52 @@ export default function Transactions() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [todayRate, setTodayRate] = useState<number>(0);
+  const [commissionRatePerK, setCommissionRatePerK] = useState<number>(30);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [form, setForm] = useState({
-    sender_id: "", receiver_id: "", amount_inr: "", commission: "0",
+    sender_id: "", receiver_id: "", amount_inr: "",
+    commission_inr: "", commission_npr: "",
+    commission_mode: "auto" as "auto" | "manual_inr" | "manual_npr",
     payment_method: "cash" as PaymentMethod, notes: "",
   });
 
-  const amountNpr = todayRate && form.amount_inr ? (parseFloat(form.amount_inr) * todayRate).toFixed(2) : "0.00";
+  const amountNpr = todayRate && form.amount_inr ? parseFloat(form.amount_inr) * todayRate : 0;
+
+  // Commission calculation logic
+  const getCommission = () => {
+    if (form.commission_mode === "manual_inr" && form.commission_inr) {
+      const inr = parseFloat(form.commission_inr);
+      return { inr, npr: todayRate ? inr * todayRate : 0 };
+    }
+    if (form.commission_mode === "manual_npr" && form.commission_npr) {
+      const npr = parseFloat(form.commission_npr);
+      return { inr: todayRate ? npr / todayRate : 0, npr };
+    }
+    // Auto: rate per 1000 NPR
+    if (amountNpr > 0 && commissionRatePerK > 0) {
+      const npr = (amountNpr / 1000) * commissionRatePerK;
+      return { inr: todayRate ? npr / todayRate : 0, npr };
+    }
+    return { inr: 0, npr: 0 };
+  };
+
+  const commission = getCommission();
+  const payableNpr = amountNpr - commission.npr;
 
   const fetchAll = async () => {
     const [t, s, r, rate] = await Promise.all([
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("senders").select("*").order("name"),
       supabase.from("receivers").select("*").order("name"),
-      supabase.from("daily_rates").select("inr_to_npr").order("rate_date", { ascending: false }).limit(1).single(),
+      supabase.from("daily_rates").select("inr_to_npr, commission_rate_npr_per_1000").order("rate_date", { ascending: false }).limit(1).single(),
     ]);
     setTxns(t.data ?? []);
     setSenders(s.data ?? []);
     setReceivers(r.data ?? []);
     setTodayRate(rate.data?.inr_to_npr ?? 0);
+    setCommissionRatePerK(rate.data?.commission_rate_npr_per_1000 ?? 30);
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -67,8 +92,9 @@ export default function Transactions() {
       receiver_id: form.receiver_id,
       amount_inr: parseFloat(form.amount_inr),
       exchange_rate: todayRate,
-      amount_npr: parseFloat(amountNpr),
-      commission: parseFloat(form.commission) || 0,
+      amount_npr: amountNpr,
+      commission: parseFloat(commission.inr.toFixed(2)),
+      commission_npr: parseFloat(commission.npr.toFixed(2)),
       payment_method: form.payment_method,
       notes: form.notes || null,
       created_by: user?.id,
@@ -77,7 +103,7 @@ export default function Transactions() {
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
 
     setOpen(false);
-    setForm({ sender_id: "", receiver_id: "", amount_inr: "", commission: "0", payment_method: "cash", notes: "" });
+    setForm({ sender_id: "", receiver_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
     fetchAll();
     toast({ title: "Transaction created" });
   };
@@ -108,6 +134,7 @@ export default function Transactions() {
           <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
           <p className="text-sm text-muted-foreground">
             {txns.length} transactions • Rate: {todayRate ? `1 INR = ${todayRate} NPR` : "Not set"}
+            {commissionRatePerK > 0 && ` • Commission: रू${commissionRatePerK}/1000`}
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -135,17 +162,72 @@ export default function Transactions() {
                 <Label>Amount (INR) *</Label>
                 <Input type="number" value={form.amount_inr} onChange={(e) => setForm({ ...form, amount_inr: e.target.value })} placeholder="10000" />
               </div>
-              <div className="bg-muted/50 p-3 rounded-md border">
+
+              {/* Exchange & Amount NPR */}
+              <div className="bg-muted/50 p-3 rounded-md border space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Exchange Rate</span>
                   <span className="font-mono">{todayRate || "—"}</span>
                 </div>
-                <div className="flex justify-between text-sm mt-1">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount (NPR)</span>
-                  <span className="font-mono font-bold text-primary text-lg">{amountNpr !== "0.00" ? `रू${parseFloat(amountNpr).toLocaleString("en-IN")}` : "—"}</span>
+                  <span className="font-mono font-bold text-primary text-lg">
+                    {amountNpr > 0 ? `रू${amountNpr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—"}
+                  </span>
                 </div>
               </div>
-              <div><Label>Commission (INR)</Label><Input type="number" value={form.commission} onChange={(e) => setForm({ ...form, commission: e.target.value })} /></div>
+
+              {/* Commission Section */}
+              <div className="space-y-2">
+                <Label>Commission Mode</Label>
+                <Select value={form.commission_mode} onValueChange={(v) => setForm({ ...form, commission_mode: v as any, commission_inr: "", commission_npr: "" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (रू{commissionRatePerK}/1000 NPR)</SelectItem>
+                    <SelectItem value="manual_inr">Manual (INR)</SelectItem>
+                    <SelectItem value="manual_npr">Manual (NPR)</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {form.commission_mode === "manual_inr" && (
+                  <div>
+                    <Label>Commission (INR)</Label>
+                    <Input type="number" value={form.commission_inr} onChange={(e) => setForm({ ...form, commission_inr: e.target.value })} placeholder="500" />
+                  </div>
+                )}
+                {form.commission_mode === "manual_npr" && (
+                  <div>
+                    <Label>Commission (NPR)</Label>
+                    <Input type="number" value={form.commission_npr} onChange={(e) => setForm({ ...form, commission_npr: e.target.value })} placeholder="800" />
+                  </div>
+                )}
+
+                {/* Commission summary */}
+                <div className="bg-muted/50 p-3 rounded-md border space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Commission (INR)</span>
+                    <span className="font-mono">₹{commission.inr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Commission (NPR)</span>
+                    <span className="font-mono">रू{commission.npr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payable Amount */}
+              {amountNpr > 0 && (
+                <div className="bg-primary/10 p-3 rounded-md border border-primary/20">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Payable (NPR)</span>
+                    <span className="font-mono font-bold text-primary text-xl">
+                      रू{payableNpr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">After commission deduction</p>
+                </div>
+              )}
+
               <div>
                 <Label>Payment Method</Label>
                 <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v as PaymentMethod })}>
@@ -183,6 +265,9 @@ export default function Transactions() {
               <TableHead>Receiver</TableHead>
               <TableHead className="text-right">INR</TableHead>
               <TableHead className="text-right">NPR</TableHead>
+              <TableHead className="text-right">Comm (₹)</TableHead>
+              <TableHead className="text-right">Comm (रू)</TableHead>
+              <TableHead className="text-right">Payable (रू)</TableHead>
               <TableHead>Method</TableHead>
               <TableHead>Status</TableHead>
               <TableHead></TableHead>
@@ -190,26 +275,33 @@ export default function Transactions() {
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
-            ) : filtered.map((t) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-mono text-xs">{t.transaction_date}</TableCell>
-                <TableCell className="font-medium text-sm">{senderMap[t.sender_id] ?? "—"}</TableCell>
-                <TableCell className="text-sm">{receiverMap[t.receiver_id] ?? "—"}</TableCell>
-                <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
-                <TableCell className="text-right font-mono text-sm text-primary">रू{Number(t.amount_npr).toLocaleString("en-IN")}</TableCell>
-                <TableCell><span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{t.payment_method.replace("_", " ")}</span></TableCell>
-                <TableCell><Badge variant={statusColor(t.status)}>{t.status}</Badge></TableCell>
-                <TableCell>
-                  {t.status === "pending" && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => updateStatus(t.id, "paid")}>Pay</Button>
-                      <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateStatus(t.id, "cancelled")}>Cancel</Button>
-                    </div>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
+            ) : filtered.map((t) => {
+              const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
+              const payable = Number(t.amount_npr) - commNpr;
+              return (
+                <TableRow key={t.id}>
+                  <TableCell className="font-mono text-xs">{t.transaction_date}</TableCell>
+                  <TableCell className="font-medium text-sm">{senderMap[t.sender_id] ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{receiverMap[t.receiver_id] ?? "—"}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-primary">रू{Number(t.amount_npr).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs text-muted-foreground">₹{Number(t.commission).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right font-mono text-xs text-muted-foreground">रू{commNpr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold text-accent">रू{payable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell><span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{t.payment_method.replace("_", " ")}</span></TableCell>
+                  <TableCell><Badge variant={statusColor(t.status)}>{t.status}</Badge></TableCell>
+                  <TableCell>
+                    {t.status === "pending" && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => updateStatus(t.id, "paid")}>Pay</Button>
+                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateStatus(t.id, "cancelled")}>Cancel</Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

@@ -16,28 +16,38 @@ export default function Reports() {
     supabase.from("transactions").select("*").order("transaction_date").then(({ data }) => setTxns(data ?? []));
   }, []);
 
-  // Monthly volume
-  const monthlyData: Record<string, { inr: number; npr: number; commission: number; count: number }> = {};
+  const monthlyData: Record<string, { inr: number; npr: number; commission_inr: number; commission_npr: number; count: number }> = {};
   txns.forEach((t) => {
     const m = t.transaction_date?.slice(0, 7) ?? "unknown";
-    if (!monthlyData[m]) monthlyData[m] = { inr: 0, npr: 0, commission: 0, count: 0 };
+    if (!monthlyData[m]) monthlyData[m] = { inr: 0, npr: 0, commission_inr: 0, commission_npr: 0, count: 0 };
     monthlyData[m].inr += Number(t.amount_inr);
     monthlyData[m].npr += Number(t.amount_npr);
-    monthlyData[m].commission += Number(t.commission);
+    monthlyData[m].commission_inr += Number(t.commission);
+    monthlyData[m].commission_npr += Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
     monthlyData[m].count++;
   });
   const monthlyChart = Object.entries(monthlyData).map(([month, d]) => ({ month, ...d }));
 
-  // Payment method distribution
   const methodData: Record<string, number> = {};
   txns.forEach((t) => { methodData[t.payment_method] = (methodData[t.payment_method] ?? 0) + 1; });
   const pieData = Object.entries(methodData).map(([name, value]) => ({ name: name.replace("_", " "), value }));
 
+  const totals = txns.reduce((acc, t) => {
+    const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
+    return {
+      inr: acc.inr + Number(t.amount_inr),
+      npr: acc.npr + Number(t.amount_npr),
+      commission_inr: acc.commission_inr + Number(t.commission),
+      commission_npr: acc.commission_npr + commNpr,
+    };
+  }, { inr: 0, npr: 0, commission_inr: 0, commission_npr: 0 });
+
   const exportCSV = () => {
-    const headers = "Date,Sender ID,Receiver ID,INR,NPR,Commission,Method,Status\n";
-    const rows = txns.map((t) =>
-      `${t.transaction_date},${t.sender_id},${t.receiver_id},${t.amount_inr},${t.amount_npr},${t.commission},${t.payment_method},${t.status}`
-    ).join("\n");
+    const headers = "Date,Sender ID,Receiver ID,INR,NPR,Commission INR,Commission NPR,Method,Status\n";
+    const rows = txns.map((t) => {
+      const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
+      return `${t.transaction_date},${t.sender_id},${t.receiver_id},${t.amount_inr},${t.amount_npr},${t.commission},${commNpr.toFixed(2)},${t.payment_method},${t.status}`;
+    }).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -78,7 +88,7 @@ export default function Reports() {
                   <YAxis className="text-xs fill-muted-foreground" />
                   <Tooltip />
                   <Bar dataKey="inr" fill={COLORS[0]} name="INR" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="commission" fill={COLORS[1]} name="Commission" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="commission_inr" fill={COLORS[1]} name="Commission ₹" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">No data</div>}
@@ -105,18 +115,22 @@ export default function Reports() {
       <Card>
         <CardHeader><CardTitle className="text-sm font-medium">Profit Summary</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">Total INR</p>
-              <p className="text-xl font-bold font-mono text-primary">₹{txns.reduce((s, t) => s + Number(t.amount_inr), 0).toLocaleString("en-IN")}</p>
+              <p className="text-xl font-bold font-mono text-primary">₹{totals.inr.toLocaleString("en-IN")}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total NPR</p>
-              <p className="text-xl font-bold font-mono">रू{txns.reduce((s, t) => s + Number(t.amount_npr), 0).toLocaleString("en-IN")}</p>
+              <p className="text-xl font-bold font-mono">रू{totals.npr.toLocaleString("en-IN")}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Commission</p>
-              <p className="text-xl font-bold font-mono text-accent">₹{txns.reduce((s, t) => s + Number(t.commission), 0).toLocaleString("en-IN")}</p>
+              <p className="text-xs text-muted-foreground">Commission (INR)</p>
+              <p className="text-xl font-bold font-mono text-primary">₹{totals.commission_inr.toLocaleString("en-IN")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Commission (NPR)</p>
+              <p className="text-xl font-bold font-mono text-accent">रू{totals.commission_npr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
             </div>
           </div>
         </CardContent>
