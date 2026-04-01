@@ -9,6 +9,7 @@ interface Metrics {
   totalNpr: number;
   totalCommissionInr: number;
   totalCommissionNpr: number;
+  netNprPaid: number;
   pendingCount: number;
   todayCount: number;
   totalCount: number;
@@ -16,7 +17,7 @@ interface Metrics {
 
 export default function Index() {
   const [metrics, setMetrics] = useState<Metrics>({
-    totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0, pendingCount: 0, todayCount: 0, totalCount: 0,
+    totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0, netNprPaid: 0, pendingCount: 0, todayCount: 0, totalCount: 0,
   });
   const [chartData, setChartData] = useState<{ month: string; volume: number }[]>([]);
 
@@ -26,21 +27,27 @@ export default function Index() {
       if (!txns) return;
 
       const today = new Date().toISOString().split("T")[0];
-      const m: Metrics = { totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0, pendingCount: 0, todayCount: 0, totalCount: txns.length };
+      const m: Metrics = { totalInr: 0, totalNpr: 0, totalCommissionInr: 0, totalCommissionNpr: 0,netNprPaid:0, pendingCount: 0, todayCount: 0, totalCount: txns.length };
 
       const monthMap: Record<string, number> = {};
 
       txns.forEach((t) => {
-        m.totalInr += Number(t.amount_inr);
-        m.totalNpr += Number(t.amount_npr);
-        m.totalCommissionInr += Number(t.commission);
-        const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
+        const amountInr = Number(t.amount_inr || 0);
+        const amountNpr = Number(t.amount_npr || 0);
+        const commissionInr = Number(t.commission || 0);
+        const commNpr = Number(t.commission_npr || 0) || (commissionInr * Number(t.exchange_rate || 1));
+        m.totalInr += amountInr;
+        m.totalNpr += amountNpr;
+        m.totalCommissionInr += commissionInr;
         m.totalCommissionNpr += commNpr;
+        if (t.status === "paid") {
+          m.netNprPaid += amountNpr - commNpr;
+        }
         if (t.status === "pending") m.pendingCount++;
         if (t.transaction_date === today) m.todayCount++;
 
         const month = t.transaction_date?.slice(0, 7) ?? "unknown";
-        monthMap[month] = (monthMap[month] ?? 0) + Number(t.amount_inr);
+        monthMap[month] = (monthMap[month] ?? 0) + amountInr;
       });
 
       setMetrics(m);
@@ -57,7 +64,8 @@ export default function Index() {
 
   const cards = [
     { title: "Total INR Received", value: `₹${metrics.totalInr.toLocaleString("en-IN")}`, icon: IndianRupee, color: "text-primary" },
-    { title: "Total NPR Paid", value: `रू${metrics.totalNpr.toLocaleString("en-IN")}`, icon: Banknote, color: "text-accent" },
+    { title: "Total NPR Received", value: `रू${metrics.totalNpr.toLocaleString("en-IN")}`, icon: Banknote, color: "text-accent" },
+    { title: "Total NPR Paid (Net)", value: `रू${metrics.netNprPaid.toLocaleString("en-IN")}`, icon: Banknote, color: "text-success" },
     { title: "Commission (INR)", value: `₹${metrics.totalCommissionInr.toLocaleString("en-IN")}`, icon: ArrowLeftRight, color: "text-success" },
     { title: "Commission (NPR)", value: `रू${metrics.totalCommissionNpr.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: ArrowLeftRight, color: "text-accent" },
     { title: "Pending Payments", value: metrics.pendingCount.toString(), icon: Clock, color: "text-warning" },
@@ -72,7 +80,7 @@ export default function Index() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {cards.map((c) => (
           <Card key={c.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
