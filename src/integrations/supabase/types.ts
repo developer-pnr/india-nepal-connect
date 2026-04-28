@@ -109,6 +109,164 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      payer_wallets: {
+        Row: {
+          balance_npr: number
+          channel: Database["public"]["Enums"]["payment_method"]
+          id: string
+          payer_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance_npr?: number
+          channel: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          payer_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance_npr?: number
+          channel?: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          payer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_wallets_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "payers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payers: {
+        Row: {
+          address: string | null
+          created_at: string
+          district: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          shop_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          district?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          shop_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          district?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          shop_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_installments: {
+        Row: {
+          amount_npr: number
+          channel: Database["public"]["Enums"]["payment_method"]
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          paid_on: string
+          payer_id: string | null
+          reference: string | null
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_npr: number
+          channel?: Database["public"]["Enums"]["payment_method"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_on?: string
+          payer_id?: string | null
+          reference?: string | null
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_npr?: number
+          channel?: Database["public"]["Enums"]["payment_method"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_on?: string
+          payer_id?: string | null
+          reference?: string | null
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_installments_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "payers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_installments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -219,6 +377,128 @@ export type Database = {
         }
         Relationships: []
       }
+      settlement_allocations: {
+        Row: {
+          amount_npr: number
+          created_at: string
+          id: string
+          settlement_id: string
+          transaction_id: string
+        }
+        Insert: {
+          amount_npr: number
+          created_at?: string
+          id?: string
+          settlement_id: string
+          transaction_id: string
+        }
+        Update: {
+          amount_npr?: number
+          created_at?: string
+          id?: string
+          settlement_id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_allocations_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_allocations_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements: {
+        Row: {
+          amount_npr: number
+          channel: Database["public"]["Enums"]["payment_method"] | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["settlement_kind"]
+          notes: string | null
+          occurred_on: string
+          party_id: string
+          party_kind: Database["public"]["Enums"]["party_kind"]
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_npr: number
+          channel?: Database["public"]["Enums"]["payment_method"] | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["settlement_kind"]
+          notes?: string | null
+          occurred_on?: string
+          party_id: string
+          party_kind: Database["public"]["Enums"]["party_kind"]
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_npr?: number
+          channel?: Database["public"]["Enums"]["payment_method"] | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["settlement_kind"]
+          notes?: string | null
+          occurred_on?: string
+          party_id?: string
+          party_kind?: Database["public"]["Enums"]["party_kind"]
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transaction_activity: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          payload: Json | null
+          transaction_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          transaction_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_activity_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount_inr: number
@@ -227,12 +507,16 @@ export type Database = {
           commission_npr: number
           created_at: string
           created_by: string | null
+          edit_reason: string | null
           exchange_rate: number
           id: string
           notes: string | null
+          paid_amount_npr: number
+          payer_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           receiver_id: string
           sender_id: string
+          slip_number: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           transaction_date: string
           updated_at: string
@@ -244,12 +528,16 @@ export type Database = {
           commission_npr?: number
           created_at?: string
           created_by?: string | null
+          edit_reason?: string | null
           exchange_rate: number
           id?: string
           notes?: string | null
+          paid_amount_npr?: number
+          payer_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receiver_id: string
           sender_id: string
+          slip_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           transaction_date?: string
           updated_at?: string
@@ -261,17 +549,28 @@ export type Database = {
           commission_npr?: number
           created_at?: string
           created_by?: string | null
+          edit_reason?: string | null
           exchange_rate?: number
           id?: string
           notes?: string | null
+          paid_amount_npr?: number
+          payer_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receiver_id?: string
           sender_id?: string
+          slip_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           transaction_date?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "payers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_receiver_id_fkey"
             columns: ["receiver_id"]
@@ -308,7 +607,16 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      party_balances: {
+        Row: {
+          outstanding_npr: number | null
+          party_id: string | null
+          party_kind: Database["public"]["Enums"]["party_kind"] | null
+          total_paid: number | null
+          total_payable: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_any_role: { Args: { _user_id: string }; Returns: boolean }
@@ -330,6 +638,10 @@ export type Database = {
         | "khalti_pool"
         | "ime_pool"
         | "commission"
+        | "sender_advance"
+        | "receiver_advance"
+        | "payer_float"
+      party_kind: "sender" | "payer" | "receiver"
       payment_method:
         | "cash"
         | "bank_transfer"
@@ -337,7 +649,8 @@ export type Database = {
         | "khalti"
         | "ime"
         | "other"
-      transaction_status: "pending" | "paid" | "cancelled"
+      settlement_kind: "advance_in" | "advance_out" | "adjustment" | "refund"
+      transaction_status: "pending" | "paid" | "cancelled" | "partially_paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -474,7 +787,11 @@ export const Constants = {
         "khalti_pool",
         "ime_pool",
         "commission",
+        "sender_advance",
+        "receiver_advance",
+        "payer_float",
       ],
+      party_kind: ["sender", "payer", "receiver"],
       payment_method: [
         "cash",
         "bank_transfer",
@@ -483,7 +800,8 @@ export const Constants = {
         "ime",
         "other",
       ],
-      transaction_status: ["pending", "paid", "cancelled"],
+      settlement_kind: ["advance_in", "advance_out", "adjustment", "refund"],
+      transaction_status: ["pending", "paid", "cancelled", "partially_paid"],
     },
   },
 } as const
