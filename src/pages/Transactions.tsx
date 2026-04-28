@@ -9,32 +9,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FileText } from "lucide-react";
+import { TransactionDetail } from "@/components/TransactionDetail";
 import type { Database } from "@/integrations/supabase/types";
 
-type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
+type Transaction = Database["public"]["Tables"]["transactions"]["Row"] & { payer_id?: string | null; paid_amount_npr?: number; slip_number?: string | null };
 type Sender = Database["public"]["Tables"]["senders"]["Row"];
 type Receiver = Database["public"]["Tables"]["receivers"]["Row"];
+type Payer = { id: string; name: string; shop_name: string | null };
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 type TxStatus = Database["public"]["Enums"]["transaction_status"];
 
 const paymentMethods: PaymentMethod[] = ["cash", "bank_transfer", "esewa", "khalti", "ime", "other"];
-const statuses: TxStatus[] = ["pending", "paid", "cancelled"];
+const statuses = ["pending", "partially_paid", "paid", "cancelled"] as const;
 
 export default function Transactions() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [payers, setPayers] = useState<Payer[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [todayRate, setTodayRate] = useState<number>(0);
   const [commissionRatePerK, setCommissionRatePerK] = useState<number>(30);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [form, setForm] = useState({
-    sender_id: "", receiver_id: "", amount_inr: "",
+    sender_id: "", receiver_id: "", payer_id: "", amount_inr: "",
     commission_inr: "", commission_npr: "",
     commission_mode: "auto" as "auto" | "manual_inr" | "manual_npr",
     payment_method: "cash" as PaymentMethod, notes: "",
@@ -64,15 +68,17 @@ export default function Transactions() {
   const payableNpr = amountNpr - commission.npr;
 
   const fetchAll = async () => {
-    const [t, s, r, rate] = await Promise.all([
+    const [t, s, r, p, rate] = await Promise.all([
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("senders").select("*").order("name"),
       supabase.from("receivers").select("*").order("name"),
+      supabase.from("payers" as any).select("id,name,shop_name").eq("is_active", true).order("name"),
       supabase.from("daily_rates").select("inr_to_npr, commission_rate_npr_per_1000").order("rate_date", { ascending: false }).limit(1).single(),
     ]);
-    setTxns(t.data ?? []);
+    setTxns((t.data as any) ?? []);
     setSenders(s.data ?? []);
     setReceivers(r.data ?? []);
+    setPayers((p.data as any) ?? []);
     setTodayRate(rate.data?.inr_to_npr ?? 0);
     setCommissionRatePerK(rate.data?.commission_rate_npr_per_1000 ?? 30);
   };
@@ -90,6 +96,7 @@ export default function Transactions() {
     const { error } = await supabase.from("transactions").insert({
       sender_id: form.sender_id,
       receiver_id: form.receiver_id,
+      payer_id: form.payer_id || null,
       amount_inr: parseFloat(form.amount_inr),
       exchange_rate: todayRate,
       amount_npr: amountNpr,
@@ -98,21 +105,17 @@ export default function Transactions() {
       payment_method: form.payment_method,
       notes: form.notes || null,
       created_by: user?.id,
-    });
+    } as any);
 
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
 
     setOpen(false);
-    setForm({ sender_id: "", receiver_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
+    setForm({ sender_id: "", receiver_id: "", payer_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
     fetchAll();
     toast({ title: "Transaction created" });
   };
 
-  const updateStatus = async (id: string, status: TxStatus) => {
-    const { error } = await supabase.from("transactions").update({ status }).eq("id", id);
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
-    fetchAll();
-  };
+
 
   const senderMap = Object.fromEntries(senders.map((s) => [s.id, s.name]));
   const receiverMap = Object.fromEntries(receivers.map((r) => [r.id, r.name]));
@@ -125,7 +128,8 @@ export default function Transactions() {
     return s.includes(q) || r.includes(q) || t.id.includes(q);
   });
 
-  const statusColor = (s: TxStatus) => s === "paid" ? "default" : s === "pending" ? "secondary" : "destructive";
+  const statusColor = (s: string) => s === "paid" ? "default" : s === "partially_paid" ? "outline" : s === "pending" ? "secondary" : "destructive";
+  const payerMap = Object.fromEntries(payers.map(p => [p.id, p.name]));
 
   return (
     <div className="space-y-4">
@@ -156,6 +160,16 @@ export default function Transactions() {
                 <Select value={form.receiver_id} onValueChange={(v) => setForm({ ...form, receiver_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select receiver" /></SelectTrigger>
                   <SelectContent>{receivers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Payer / Mediator</Label>
+                <Select value={form.payer_id || "none"} onValueChange={(v) => setForm({ ...form, payer_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {payers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}{p.shop_name ? ` (${p.shop_name})` : ""}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
@@ -260,52 +274,46 @@ export default function Transactions() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Slip</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Sender</TableHead>
-              <TableHead>Receiver</TableHead>
+              <TableHead>Sender → Payer → Receiver</TableHead>
               <TableHead className="text-right">INR</TableHead>
-              <TableHead className="text-right">NPR</TableHead>
-              <TableHead className="text-right">Comm (₹)</TableHead>
-              <TableHead className="text-right">Comm (रू)</TableHead>
               <TableHead className="text-right">Payable (रू)</TableHead>
-              <TableHead>Method</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
             ) : filtered.map((t) => {
               const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
               const payable = Number(t.amount_npr) - commNpr;
+              const paid = Number(t.paid_amount_npr || 0);
+              const outstanding = payable - paid;
               return (
-                <TableRow key={t.id}>
+                <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => setSelectedId(t.id)}>
+                  <TableCell className="font-mono text-xs flex items-center gap-1"><FileText className="h-3 w-3 text-muted-foreground" />{t.slip_number ?? t.id.slice(0,6)}</TableCell>
                   <TableCell className="font-mono text-xs">{t.transaction_date}</TableCell>
-                  <TableCell className="font-medium text-sm">{senderMap[t.sender_id] ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{receiverMap[t.receiver_id] ?? "—"}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-primary">रू{Number(t.amount_npr).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">₹{Number(t.commission).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">रू{commNpr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right font-mono text-sm font-semibold text-accent">रू{payable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell><span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{t.payment_method.replace("_", " ")}</span></TableCell>
-                  <TableCell><Badge variant={statusColor(t.status)}>{t.status}</Badge></TableCell>
-                  <TableCell>
-                    {t.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => updateStatus(t.id, "paid")}>Pay</Button>
-                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateStatus(t.id, "cancelled")}>Cancel</Button>
-                      </div>
-                    )}
+                  <TableCell className="text-sm">
+                    <div className="font-medium">{senderMap[t.sender_id] ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{payerMap[t.payer_id ?? ""] ?? "no payer"} → {receiverMap[t.receiver_id] ?? "—"}</div>
                   </TableCell>
+                  <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold text-primary">रू{payable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-accent">रू{paid.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className={`text-right font-mono text-sm ${outstanding > 0 ? "text-destructive" : "text-muted-foreground"}`}>रू{outstanding.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell><Badge variant={statusColor(t.status) as any}>{t.status.replace("_", " ")}</Badge></TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {txns.length}</p>
+      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {txns.length} • Click any row for details, payments, edit & slip</p>
+
+      <TransactionDetail txId={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} onChange={fetchAll} />
     </div>
   );
 }
