@@ -132,7 +132,8 @@ export default function Transactions() {
     return s.includes(q) || r.includes(q) || t.id.includes(q);
   });
 
-  const statusColor = (s: TxStatus) => s === "paid" ? "default" : s === "pending" ? "secondary" : "destructive";
+  const statusColor = (s: string) => s === "paid" ? "default" : s === "partially_paid" ? "outline" : s === "pending" ? "secondary" : "destructive";
+  const payerMap = Object.fromEntries(payers.map(p => [p.id, p.name]));
 
   return (
     <div className="space-y-4">
@@ -163,6 +164,16 @@ export default function Transactions() {
                 <Select value={form.receiver_id} onValueChange={(v) => setForm({ ...form, receiver_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select receiver" /></SelectTrigger>
                   <SelectContent>{receivers.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Payer / Mediator</Label>
+                <Select value={form.payer_id || "none"} onValueChange={(v) => setForm({ ...form, payer_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {payers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}{p.shop_name ? ` (${p.shop_name})` : ""}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
@@ -267,52 +278,46 @@ export default function Transactions() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Slip</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Sender</TableHead>
-              <TableHead>Receiver</TableHead>
+              <TableHead>Sender → Payer → Receiver</TableHead>
               <TableHead className="text-right">INR</TableHead>
-              <TableHead className="text-right">NPR</TableHead>
-              <TableHead className="text-right">Comm (₹)</TableHead>
-              <TableHead className="text-right">Comm (रू)</TableHead>
               <TableHead className="text-right">Payable (रू)</TableHead>
-              <TableHead>Method</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No transactions</TableCell></TableRow>
             ) : filtered.map((t) => {
               const commNpr = Number(t.commission_npr) || (Number(t.commission) * Number(t.exchange_rate));
               const payable = Number(t.amount_npr) - commNpr;
+              const paid = Number(t.paid_amount_npr || 0);
+              const outstanding = payable - paid;
               return (
-                <TableRow key={t.id}>
+                <TableRow key={t.id} className="cursor-pointer hover:bg-muted/40" onClick={() => setSelectedId(t.id)}>
+                  <TableCell className="font-mono text-xs flex items-center gap-1"><FileText className="h-3 w-3 text-muted-foreground" />{t.slip_number ?? t.id.slice(0,6)}</TableCell>
                   <TableCell className="font-mono text-xs">{t.transaction_date}</TableCell>
-                  <TableCell className="font-medium text-sm">{senderMap[t.sender_id] ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{receiverMap[t.receiver_id] ?? "—"}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-primary">रू{Number(t.amount_npr).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">₹{Number(t.commission).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">रू{commNpr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right font-mono text-sm font-semibold text-accent">रू{payable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell><span className="font-mono text-xs bg-secondary px-1.5 py-0.5 rounded">{t.payment_method.replace("_", " ")}</span></TableCell>
-                  <TableCell><Badge variant={statusColor(t.status)}>{t.status}</Badge></TableCell>
-                  <TableCell>
-                    {t.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => updateStatus(t.id, "paid")}>Pay</Button>
-                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateStatus(t.id, "cancelled")}>Cancel</Button>
-                      </div>
-                    )}
+                  <TableCell className="text-sm">
+                    <div className="font-medium">{senderMap[t.sender_id] ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{payerMap[t.payer_id ?? ""] ?? "no payer"} → {receiverMap[t.receiver_id] ?? "—"}</div>
                   </TableCell>
+                  <TableCell className="text-right font-mono text-sm">₹{Number(t.amount_inr).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold text-primary">रू{payable.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-accent">रू{paid.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className={`text-right font-mono text-sm ${outstanding > 0 ? "text-destructive" : "text-muted-foreground"}`}>रू{outstanding.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell><Badge variant={statusColor(t.status) as any}>{t.status.replace("_", " ")}</Badge></TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {txns.length}</p>
+      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {txns.length} • Click any row for details, payments, edit & slip</p>
+
+      <TransactionDetail txId={selectedId} open={!!selectedId} onClose={() => setSelectedId(null)} onChange={fetchAll} />
     </div>
   );
 }
