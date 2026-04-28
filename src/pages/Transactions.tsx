@@ -9,32 +9,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FileText } from "lucide-react";
+import { TransactionDetail } from "@/components/TransactionDetail";
 import type { Database } from "@/integrations/supabase/types";
 
-type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
+type Transaction = Database["public"]["Tables"]["transactions"]["Row"] & { payer_id?: string | null; paid_amount_npr?: number; slip_number?: string | null };
 type Sender = Database["public"]["Tables"]["senders"]["Row"];
 type Receiver = Database["public"]["Tables"]["receivers"]["Row"];
+type Payer = { id: string; name: string; shop_name: string | null };
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 type TxStatus = Database["public"]["Enums"]["transaction_status"];
 
 const paymentMethods: PaymentMethod[] = ["cash", "bank_transfer", "esewa", "khalti", "ime", "other"];
-const statuses: TxStatus[] = ["pending", "paid", "cancelled"];
+const statuses = ["pending", "partially_paid", "paid", "cancelled"] as const;
 
 export default function Transactions() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [payers, setPayers] = useState<Payer[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [todayRate, setTodayRate] = useState<number>(0);
   const [commissionRatePerK, setCommissionRatePerK] = useState<number>(30);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [form, setForm] = useState({
-    sender_id: "", receiver_id: "", amount_inr: "",
+    sender_id: "", receiver_id: "", payer_id: "", amount_inr: "",
     commission_inr: "", commission_npr: "",
     commission_mode: "auto" as "auto" | "manual_inr" | "manual_npr",
     payment_method: "cash" as PaymentMethod, notes: "",
@@ -64,15 +68,17 @@ export default function Transactions() {
   const payableNpr = amountNpr - commission.npr;
 
   const fetchAll = async () => {
-    const [t, s, r, rate] = await Promise.all([
+    const [t, s, r, p, rate] = await Promise.all([
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("senders").select("*").order("name"),
       supabase.from("receivers").select("*").order("name"),
+      supabase.from("payers" as any).select("id,name,shop_name").eq("is_active", true).order("name"),
       supabase.from("daily_rates").select("inr_to_npr, commission_rate_npr_per_1000").order("rate_date", { ascending: false }).limit(1).single(),
     ]);
-    setTxns(t.data ?? []);
+    setTxns((t.data as any) ?? []);
     setSenders(s.data ?? []);
     setReceivers(r.data ?? []);
+    setPayers((p.data as any) ?? []);
     setTodayRate(rate.data?.inr_to_npr ?? 0);
     setCommissionRatePerK(rate.data?.commission_rate_npr_per_1000 ?? 30);
   };
@@ -90,6 +96,7 @@ export default function Transactions() {
     const { error } = await supabase.from("transactions").insert({
       sender_id: form.sender_id,
       receiver_id: form.receiver_id,
+      payer_id: form.payer_id || null,
       amount_inr: parseFloat(form.amount_inr),
       exchange_rate: todayRate,
       amount_npr: amountNpr,
@@ -98,12 +105,12 @@ export default function Transactions() {
       payment_method: form.payment_method,
       notes: form.notes || null,
       created_by: user?.id,
-    });
+    } as any);
 
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
 
     setOpen(false);
-    setForm({ sender_id: "", receiver_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
+    setForm({ sender_id: "", receiver_id: "", payer_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
     fetchAll();
     toast({ title: "Transaction created" });
   };
