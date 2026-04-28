@@ -115,11 +115,7 @@ export default function Transactions() {
     toast({ title: "Transaction created" });
   };
 
-  const updateStatus = async (id: string, status: TxStatus) => {
-    const { error } = await supabase.from("transactions").update({ status }).eq("id", id);
-    if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
-    fetchAll();
-  };
+
 
   const senderMap = Object.fromEntries(senders.map((s) => [s.id, s.name]));
   const receiverMap = Object.fromEntries(receivers.map((r) => [r.id, r.name]));
