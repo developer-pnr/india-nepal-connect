@@ -152,7 +152,7 @@ export default function Ledger() {
         </Card>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -160,6 +160,19 @@ export default function Ledger() {
             {accounts.map((a) => <SelectItem key={a} value={a}>{a.replace("_", " ").toUpperCase()}</SelectItem>)}
           </SelectContent>
         </Select>
+        <ExportMenu getSpec={(): ExportSpec => ({
+          title: { en: "Ledger", hi: "खाता बही", ne: "खाता बही" },
+          subtitle: filter === "all" ? "All Accounts" : filter.toUpperCase(),
+          columns: [
+            { key: "created_at", labels: { en: "Date", hi: "दिनांक", ne: "मिति" }, format: (v) => new Date(v).toLocaleDateString() },
+            { key: "account", labels: { en: "Account", hi: "खाता", ne: "खाता" }, format: (v) => String(v).replace("_", " ") },
+            { key: "debit", align: "right", labels: { en: "Debit", hi: "नामे", ne: "डेबिट" }, format: (v) => Number(v) > 0 ? Number(v).toLocaleString("en-IN") : "" },
+            { key: "credit", align: "right", labels: { en: "Credit", hi: "जमा", ne: "क्रेडिट" }, format: (v) => Number(v) > 0 ? Number(v).toLocaleString("en-IN") : "" },
+            { key: "description", labels: { en: "Description", hi: "विवरण", ne: "विवरण" } },
+          ],
+          rows: entries,
+          filenameBase: `ledger-${filter}`,
+        })} />
       </div>
 
       {/* INR History */}
