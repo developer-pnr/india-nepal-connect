@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { ExportSpec } from "@/lib/exports";
 
 const COLORS = ["hsl(160,60%,38%)", "hsl(38,92%,50%)", "hsl(220,14%,46%)", "hsl(0,72%,51%)", "hsl(280,60%,50%)", "hsl(200,60%,50%)"];
+const fmt = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 export default function Reports() {
   const [txns, setTxns] = useState<any[]>([]);
@@ -71,8 +74,30 @@ export default function Reports() {
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={exportCSV}>
-            <Download className="h-4 w-4 mr-1" /> Export CSV
+            <Download className="h-4 w-4 mr-1" /> CSV
           </Button>
+          <ExportMenu getSpec={(): ExportSpec => ({
+            title: { en: "Remittance Report", hi: "प्रेषण रिपोर्ट", ne: "रेमिट्यान्स रिपोर्ट" },
+            subtitle: `${reportType} • ${txns.length} transactions`,
+            meta: [
+              { label: { en: "Total INR", hi: "कुल INR", ne: "जम्मा INR" }, value: `₹ ${fmt(totals.inr)}` },
+              { label: { en: "Total NPR", hi: "कुल NPR", ne: "जम्मा NPR" }, value: `रू ${fmt(totals.npr)}` },
+              { label: { en: "Commission INR", hi: "कमीशन INR", ne: "कमिसन INR" }, value: `₹ ${fmt(totals.commission_inr)}` },
+              { label: { en: "Commission NPR", hi: "कमीशन NPR", ne: "कमिसन NPR" }, value: `रू ${fmt(totals.commission_npr)}` },
+            ],
+            columns: [
+              { key: "transaction_date", labels: { en: "Date", hi: "दिनांक", ne: "मिति" } },
+              { key: "slip_number", labels: { en: "Slip", hi: "पर्ची", ne: "पर्ची" }, format: (v, r) => v ?? r.id?.slice(0,6) },
+              { key: "amount_inr", align: "right", labels: { en: "Amount (INR)", hi: "राशि (INR)", ne: "रकम (INR)" }, format: (v) => `₹ ${fmt(v)}` },
+              { key: "exchange_rate", align: "right", labels: { en: "Rate", hi: "दर", ne: "दर" }, format: (v) => fmt(v) },
+              { key: "amount_npr", align: "right", labels: { en: "Amount (NPR)", hi: "राशि (NPR)", ne: "रकम (NPR)" }, format: (v) => `रू ${fmt(v)}` },
+              { key: "commission_npr", align: "right", labels: { en: "Commission (NPR)", hi: "कमीशन (NPR)", ne: "कमिसन (NPR)" }, format: (v, r) => `रू ${fmt(Number(v) || Number(r.commission)*Number(r.exchange_rate))}` },
+              { key: "payment_method", labels: { en: "Method", hi: "माध्यम", ne: "माध्यम" } },
+              { key: "status", labels: { en: "Status", hi: "स्थिति", ne: "स्थिति" } },
+            ],
+            rows: txns,
+            filenameBase: `report-${reportType}-${new Date().toISOString().split("T")[0]}`,
+          })} />
         </div>
       </div>
 

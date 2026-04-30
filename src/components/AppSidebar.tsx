@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ArrowLeftRight, Users, UserCheck, BookOpen,
-  TrendingUp, FileBarChart, Shield, Store, Scale, Wallet, FileText
+  TrendingUp, FileBarChart, Shield, Store, Scale, Wallet, FileText, HandCoins,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -17,6 +17,7 @@ const mainItems = [
   { title: "Senders", url: "/senders", icon: Users },
   { title: "Payers / Shops", url: "/payers", icon: Store },
   { title: "Receivers", url: "/receivers", icon: UserCheck },
+  { title: "Lending / Borrowing", url: "/lending", icon: HandCoins },
   { title: "Settlements", url: "/settlements", icon: Scale },
   { title: "Wallets", url: "/wallets", icon: Wallet },
   { title: "Statements", url: "/statements", icon: FileText },

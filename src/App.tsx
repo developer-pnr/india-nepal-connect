@@ -12,6 +12,7 @@ import Senders from "./pages/Senders";
 import Payers from "./pages/Payers";
 import Receivers from "./pages/Receivers";
 import Settlements from "./pages/Settlements";
+import Lending from "./pages/Lending";
 import Wallets from "./pages/Wallets";
 import Statements from "./pages/Statements";
 import Ledger from "./pages/Ledger";
@@ -49,6 +50,7 @@ function ProtectedRoutes() {
         <Route path="/payers" element={<Payers />} />
         <Route path="/receivers" element={<Receivers />} />
         <Route path="/settlements" element={<Settlements />} />
+        <Route path="/lending" element={<Lending />} />
         <Route path="/wallets" element={<Wallets />} />
         <Route path="/statements" element={<Statements />} />
         <Route path="/ledger" element={<Ledger />} />
