@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_movements: {
+        Row: {
+          account_id: string
+          amount: number
+          counter_account_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["account_movement_kind"]
+          notes: string | null
+          occurred_on: string
+          reference: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          counter_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["account_movement_kind"]
+          notes?: string | null
+          occurred_on?: string
+          reference?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          counter_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["account_movement_kind"]
+          notes?: string | null
+          occurred_on?: string
+          reference?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_movements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "my_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_movements_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "my_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -71,6 +128,45 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          budget_npr: number | null
+          color: string | null
+          created_at: string
+          description: string | null
+          ends_on: string | null
+          id: string
+          is_active: boolean
+          name: string
+          starts_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          budget_npr?: number | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          starts_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          budget_npr?: number | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          starts_on?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ledger_entries: {
         Row: {
           account: Database["public"]["Enums"]["ledger_account"]
@@ -108,6 +204,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      my_accounts: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["my_account_currency"]
+          id: string
+          identifier: string | null
+          is_active: boolean
+          kind: Database["public"]["Enums"]["my_account_kind"]
+          name: string
+          notes: string | null
+          opening_balance: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["my_account_currency"]
+          id?: string
+          identifier?: string | null
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["my_account_kind"]
+          name: string
+          notes?: string | null
+          opening_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["my_account_currency"]
+          id?: string
+          identifier?: string | null
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["my_account_kind"]
+          name?: string
+          notes?: string | null
+          opening_balance?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -508,6 +643,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           edit_reason: string | null
+          event_id: string | null
           exchange_rate: number
           id: string
           notes: string | null
@@ -529,6 +665,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           edit_reason?: string | null
+          event_id?: string | null
           exchange_rate: number
           id?: string
           notes?: string | null
@@ -550,6 +687,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           edit_reason?: string | null
+          event_id?: string | null
           exchange_rate?: number
           id?: string
           notes?: string | null
@@ -564,6 +702,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_payer_id_fkey"
             columns: ["payer_id"]
@@ -617,6 +762,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_monthly_analytics: {
+        Row: {
+          commission_total: number | null
+          inr_total: number | null
+          month: string | null
+          npr_total: number | null
+          outstanding_total: number | null
+          paid_total: number | null
+          tx_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_any_role: { Args: { _user_id: string }; Returns: boolean }
@@ -629,6 +786,15 @@ export type Database = {
       }
     }
     Enums: {
+      account_movement_kind:
+        | "deposit"
+        | "withdrawal"
+        | "transfer_in"
+        | "transfer_out"
+        | "txn_inflow"
+        | "txn_outflow"
+        | "adjustment"
+        | "opening"
       app_role: "admin" | "operator" | "viewer"
       ledger_account:
         | "indian_bank"
@@ -641,6 +807,8 @@ export type Database = {
         | "sender_advance"
         | "receiver_advance"
         | "payer_float"
+      my_account_currency: "INR" | "NPR"
+      my_account_kind: "bank" | "cash" | "wallet" | "other"
       party_kind: "sender" | "payer" | "receiver"
       payment_method:
         | "cash"
@@ -778,6 +946,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_movement_kind: [
+        "deposit",
+        "withdrawal",
+        "transfer_in",
+        "transfer_out",
+        "txn_inflow",
+        "txn_outflow",
+        "adjustment",
+        "opening",
+      ],
       app_role: ["admin", "operator", "viewer"],
       ledger_account: [
         "indian_bank",
@@ -791,6 +969,8 @@ export const Constants = {
         "receiver_advance",
         "payer_float",
       ],
+      my_account_currency: ["INR", "NPR"],
+      my_account_kind: ["bank", "cash", "wallet", "other"],
       party_kind: ["sender", "payer", "receiver"],
       payment_method: [
         "cash",
