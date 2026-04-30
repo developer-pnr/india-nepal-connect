@@ -177,6 +177,16 @@ export default function Transactions() {
                 </Select>
               </div>
               <div>
+                <Label>Event tag</Label>
+                <Select value={form.event_id || "none"} onValueChange={(v) => setForm({ ...form, event_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {events.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label>Amount (INR) *</Label>
                 <Input type="number" value={form.amount_inr} onChange={(e) => setForm({ ...form, amount_inr: e.target.value })} placeholder="10000" />
               </div>
