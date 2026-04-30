@@ -98,6 +98,8 @@ export default function Reports() {
             rows: txns,
             filenameBase: `report-${reportType}-${new Date().toISOString().split("T")[0]}`,
           })} />
+        </div>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
