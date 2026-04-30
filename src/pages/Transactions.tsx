@@ -100,6 +100,7 @@ export default function Transactions() {
       sender_id: form.sender_id,
       receiver_id: form.receiver_id,
       payer_id: form.payer_id || null,
+      event_id: form.event_id || null,
       amount_inr: parseFloat(form.amount_inr),
       exchange_rate: todayRate,
       amount_npr: amountNpr,
@@ -113,7 +114,7 @@ export default function Transactions() {
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
 
     setOpen(false);
-    setForm({ sender_id: "", receiver_id: "", payer_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
+    setForm({ sender_id: "", receiver_id: "", payer_id: "", event_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
     fetchAll();
     toast({ title: "Transaction created" });
   };
