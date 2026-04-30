@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { ExportSpec } from "@/lib/exports";
 import type { Database } from "@/integrations/supabase/types";
 
 type LedgerEntry = Database["public"]["Tables"]["ledger_entries"]["Row"];
