@@ -18,6 +18,9 @@ import Statements from "./pages/Statements";
 import Ledger from "./pages/Ledger";
 import Rates from "./pages/Rates";
 import Reports from "./pages/Reports";
+import Analytics from "./pages/Analytics";
+import Accounts from "./pages/Accounts";
+import Events from "./pages/Events";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
