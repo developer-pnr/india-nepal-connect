@@ -69,29 +69,28 @@ export default function Statements() {
     URL.revokeObjectURL(url);
   };
 
-  const exportPDF = () => {
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    pdf.setFontSize(16); pdf.text("Account Statement", 40, 50);
-    pdf.setFontSize(11); pdf.text(`${kind.toUpperCase()}: ${partyName}`, 40, 70);
-    pdf.text(`Generated: ${new Date().toLocaleString()}`, 40, 86);
-    pdf.setFontSize(9);
-    let y = 110;
-    pdf.text("Date", 40, y); pdf.text("Description", 110, y); pdf.text("Debit", 360, y); pdf.text("Credit", 430, y); pdf.text("Balance", 500, y);
-    y += 4; pdf.line(40, y, 555, y); y += 12;
-    rows.forEach(r => {
-      if (y > 780) { pdf.addPage(); y = 50; }
-      pdf.text(r.date, 40, y);
-      pdf.text(r.description.slice(0, 40), 110, y);
-      pdf.text(r.debit ? fmt(r.debit) : "", 360, y);
-      pdf.text(r.credit ? fmt(r.credit) : "", 430, y);
-      pdf.text(fmt(r.balance), 500, y);
-      y += 14;
-    });
-    y += 8; pdf.line(40, y, 555, y); y += 14;
-    pdf.setFontSize(10);
-    pdf.text(`Totals — Debit: रू ${fmt(totalDebit)}   Credit: रू ${fmt(totalCredit)}   Closing: रू ${fmt(closing)}`, 40, y);
-    pdf.save(`statement-${kind}-${partyName}.pdf`);
-  };
+  const buildSpec = (): ExportSpec => ({
+    title: { en: "Account Statement", hi: "खाता विवरण", ne: "खाता विवरण" },
+    subtitle: `${kind.toUpperCase()} — ${partyName}`,
+    meta: [
+      { label: { en: "Party Type", hi: "पक्ष प्रकार", ne: "पक्ष प्रकार" }, value: kind.toUpperCase() },
+      { label: { en: "Party Name", hi: "पक्ष का नाम", ne: "पक्षको नाम" }, value: partyName },
+    ],
+    columns: [
+      { key: "date", labels: { en: "Date", hi: "दिनांक", ne: "मिति" } },
+      { key: "description", labels: { en: "Description", hi: "विवरण", ne: "विवरण" } },
+      { key: "debit", align: "right", labels: { en: "Debit (NPR)", hi: "नामे (NPR)", ne: "डेबिट (NPR)" }, format: (v) => v ? fmt(v) : "" },
+      { key: "credit", align: "right", labels: { en: "Credit (NPR)", hi: "जमा (NPR)", ne: "क्रेडिट (NPR)" }, format: (v) => v ? fmt(v) : "" },
+      { key: "balance", align: "right", labels: { en: "Balance (NPR)", hi: "शेष (NPR)", ne: "मौज्दात (NPR)" }, format: (v) => fmt(v) },
+    ],
+    rows,
+    totals: [
+      { label: { en: "Total Debit", hi: "कुल नामे", ne: "जम्मा डेबिट" }, value: `रू ${fmt(totalDebit)}` },
+      { label: { en: "Total Credit", hi: "कुल जमा", ne: "जम्मा क्रेडिट" }, value: `रू ${fmt(totalCredit)}` },
+      { label: { en: "Closing Balance", hi: "अंतिम शेष", ne: "अन्तिम मौज्दात" }, value: `रू ${fmt(closing)}` },
+    ],
+    filenameBase: `statement-${kind}-${partyName.replace(/\s+/g, "_")}`,
+  });
 
   return (
     <div className="space-y-4">
@@ -114,7 +113,7 @@ export default function Statements() {
         {partyId && (
           <>
             <Button variant="outline" size="sm" onClick={exportCSV}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-            <Button variant="outline" size="sm" onClick={exportPDF}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
+            <ExportMenu getSpec={buildSpec} />
           </>
         )}
       </div>
