@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, ArrowLeftRight, Users, UserCheck, BookOpen,
   TrendingUp, FileBarChart, Shield, Store, Scale, Wallet, FileText, HandCoins,
+  PiggyBank, Tag, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
