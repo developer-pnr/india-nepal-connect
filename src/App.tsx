@@ -59,6 +59,9 @@ function ProtectedRoutes() {
         <Route path="/ledger" element={<Ledger />} />
         <Route path="/rates" element={<Rates />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/accounts" element={<Accounts />} />
+        <Route path="/events" element={<Events />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
