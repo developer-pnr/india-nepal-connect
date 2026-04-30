@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, ArrowLeftRight, Users, UserCheck, BookOpen,
   TrendingUp, FileBarChart, Shield, Store, Scale, Wallet, FileText, HandCoins,
+  PiggyBank, Tag, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -19,10 +20,13 @@ const mainItems = [
   { title: "Receivers", url: "/receivers", icon: UserCheck },
   { title: "Lending / Borrowing", url: "/lending", icon: HandCoins },
   { title: "Settlements", url: "/settlements", icon: Scale },
+  { title: "My Accounts", url: "/accounts", icon: PiggyBank },
   { title: "Wallets", url: "/wallets", icon: Wallet },
+  { title: "Events", url: "/events", icon: Tag },
   { title: "Statements", url: "/statements", icon: FileText },
   { title: "Ledger", url: "/ledger", icon: BookOpen },
   { title: "Rates", url: "/rates", icon: TrendingUp },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Reports", url: "/reports", icon: FileBarChart },
 ];
 

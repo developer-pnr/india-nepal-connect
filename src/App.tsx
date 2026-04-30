@@ -18,6 +18,9 @@ import Statements from "./pages/Statements";
 import Ledger from "./pages/Ledger";
 import Rates from "./pages/Rates";
 import Reports from "./pages/Reports";
+import Analytics from "./pages/Analytics";
+import Accounts from "./pages/Accounts";
+import Events from "./pages/Events";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -56,6 +59,9 @@ function ProtectedRoutes() {
         <Route path="/ledger" element={<Ledger />} />
         <Route path="/rates" element={<Rates />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/accounts" element={<Accounts />} />
+        <Route path="/events" element={<Events />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -28,6 +28,7 @@ export default function Transactions() {
   const [senders, setSenders] = useState<Sender[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [payers, setPayers] = useState<Payer[]>([]);
+  const [events, setEvents] = useState<{ id: string; name: string; color: string | null }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
@@ -38,7 +39,7 @@ export default function Transactions() {
   const { toast } = useToast();
 
   const [form, setForm] = useState({
-    sender_id: "", receiver_id: "", payer_id: "", amount_inr: "",
+    sender_id: "", receiver_id: "", payer_id: "", event_id: "", amount_inr: "",
     commission_inr: "", commission_npr: "",
     commission_mode: "auto" as "auto" | "manual_inr" | "manual_npr",
     payment_method: "cash" as PaymentMethod, notes: "",
@@ -68,17 +69,19 @@ export default function Transactions() {
   const payableNpr = amountNpr - commission.npr;
 
   const fetchAll = async () => {
-    const [t, s, r, p, rate] = await Promise.all([
+    const [t, s, r, p, ev, rate] = await Promise.all([
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("senders").select("*").order("name"),
       supabase.from("receivers").select("*").order("name"),
       supabase.from("payers" as any).select("id,name,shop_name").eq("is_active", true).order("name"),
+      supabase.from("events" as any).select("id,name,color").eq("is_active", true).order("name"),
       supabase.from("daily_rates").select("inr_to_npr, commission_rate_npr_per_1000").order("rate_date", { ascending: false }).limit(1).single(),
     ]);
     setTxns((t.data as any) ?? []);
     setSenders(s.data ?? []);
     setReceivers(r.data ?? []);
     setPayers((p.data as any) ?? []);
+    setEvents((ev.data as any) ?? []);
     setTodayRate(rate.data?.inr_to_npr ?? 0);
     setCommissionRatePerK(rate.data?.commission_rate_npr_per_1000 ?? 30);
   };
@@ -97,6 +100,7 @@ export default function Transactions() {
       sender_id: form.sender_id,
       receiver_id: form.receiver_id,
       payer_id: form.payer_id || null,
+      event_id: form.event_id || null,
       amount_inr: parseFloat(form.amount_inr),
       exchange_rate: todayRate,
       amount_npr: amountNpr,
@@ -110,7 +114,7 @@ export default function Transactions() {
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
 
     setOpen(false);
-    setForm({ sender_id: "", receiver_id: "", payer_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
+    setForm({ sender_id: "", receiver_id: "", payer_id: "", event_id: "", amount_inr: "", commission_inr: "", commission_npr: "", commission_mode: "auto", payment_method: "cash", notes: "" });
     fetchAll();
     toast({ title: "Transaction created" });
   };
@@ -169,6 +173,16 @@ export default function Transactions() {
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
                     {payers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}{p.shop_name ? ` (${p.shop_name})` : ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Event tag</Label>
+                <Select value={form.event_id || "none"} onValueChange={(v) => setForm({ ...form, event_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {events.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
