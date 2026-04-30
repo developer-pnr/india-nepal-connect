@@ -69,17 +69,19 @@ export default function Transactions() {
   const payableNpr = amountNpr - commission.npr;
 
   const fetchAll = async () => {
-    const [t, s, r, p, rate] = await Promise.all([
+    const [t, s, r, p, ev, rate] = await Promise.all([
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("senders").select("*").order("name"),
       supabase.from("receivers").select("*").order("name"),
       supabase.from("payers" as any).select("id,name,shop_name").eq("is_active", true).order("name"),
+      supabase.from("events" as any).select("id,name,color").eq("is_active", true).order("name"),
       supabase.from("daily_rates").select("inr_to_npr, commission_rate_npr_per_1000").order("rate_date", { ascending: false }).limit(1).single(),
     ]);
     setTxns((t.data as any) ?? []);
     setSenders(s.data ?? []);
     setReceivers(r.data ?? []);
     setPayers((p.data as any) ?? []);
+    setEvents((ev.data as any) ?? []);
     setTodayRate(rate.data?.inr_to_npr ?? 0);
     setCommissionRatePerK(rate.data?.commission_rate_npr_per_1000 ?? 30);
   };
