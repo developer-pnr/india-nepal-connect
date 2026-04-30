@@ -39,7 +39,7 @@ export default function Transactions() {
   const { toast } = useToast();
 
   const [form, setForm] = useState({
-    sender_id: "", receiver_id: "", payer_id: "", amount_inr: "",
+    sender_id: "", receiver_id: "", payer_id: "", event_id: "", amount_inr: "",
     commission_inr: "", commission_npr: "",
     commission_mode: "auto" as "auto" | "manual_inr" | "manual_npr",
     payment_method: "cash" as PaymentMethod, notes: "",
