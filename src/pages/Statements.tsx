@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileDown } from "lucide-react";
-import jsPDF from "jspdf";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { ExportSpec } from "@/lib/exports";
 
 const fmt = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
