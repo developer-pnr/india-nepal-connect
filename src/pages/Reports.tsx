@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { ExportMenu } from "@/components/ExportMenu";
+import type { ExportSpec } from "@/lib/exports";
 
 const COLORS = ["hsl(160,60%,38%)", "hsl(38,92%,50%)", "hsl(220,14%,46%)", "hsl(0,72%,51%)", "hsl(280,60%,50%)", "hsl(200,60%,50%)"];
+const fmt = (n: number) => (Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 export default function Reports() {
   const [txns, setTxns] = useState<any[]>([]);
