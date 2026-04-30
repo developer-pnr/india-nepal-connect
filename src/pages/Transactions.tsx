@@ -28,6 +28,7 @@ export default function Transactions() {
   const [senders, setSenders] = useState<Sender[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [payers, setPayers] = useState<Payer[]>([]);
+  const [events, setEvents] = useState<{ id: string; name: string; color: string | null }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
