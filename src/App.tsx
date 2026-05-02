@@ -21,8 +21,15 @@ import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import Accounts from "./pages/Accounts";
 import Events from "./pages/Events";
-import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import { AdminLayout } from "@/components/AdminLayout";
+import AdminOverview from "./pages/admin/Overview";
+import AdminUsers from "./pages/admin/Users";
+import AdminAuditLogs from "./pages/admin/AuditLogs";
+import AdminTransactions from "./pages/admin/Transactions";
+import AdminParties from "./pages/admin/Parties";
+import AdminMaintenance from "./pages/admin/Maintenance";
+import AdminSettings from "./pages/admin/Settings";
 
 const queryClient = new QueryClient();
 
@@ -45,27 +52,44 @@ function ProtectedRoutes() {
   if (!session) return <Navigate to="/auth" replace />;
 
   return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/transactions" element={<Transactions />} />
-        <Route path="/senders" element={<Senders />} />
-        <Route path="/payers" element={<Payers />} />
-        <Route path="/receivers" element={<Receivers />} />
-        <Route path="/settlements" element={<Settlements />} />
-        <Route path="/lending" element={<Lending />} />
-        <Route path="/wallets" element={<Wallets />} />
-        <Route path="/statements" element={<Statements />} />
-        <Route path="/ledger" element={<Ledger />} />
-        <Route path="/rates" element={<Rates />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/accounts" element={<Accounts />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppLayout>
+    <Routes>
+      <Route path="/admin/*" element={
+        <AdminLayout>
+          <Routes>
+            <Route path="/" element={<AdminOverview />} />
+            <Route path="/users" element={<AdminUsers />} />
+            <Route path="/transactions" element={<AdminTransactions />} />
+            <Route path="/parties" element={<AdminParties />} />
+            <Route path="/audit" element={<AdminAuditLogs />} />
+            <Route path="/maintenance" element={<AdminMaintenance />} />
+            <Route path="/settings" element={<AdminSettings />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </AdminLayout>
+      } />
+      <Route path="/*" element={
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/senders" element={<Senders />} />
+            <Route path="/payers" element={<Payers />} />
+            <Route path="/receivers" element={<Receivers />} />
+            <Route path="/settlements" element={<Settlements />} />
+            <Route path="/lending" element={<Lending />} />
+            <Route path="/wallets" element={<Wallets />} />
+            <Route path="/statements" element={<Statements />} />
+            <Route path="/ledger" element={<Ledger />} />
+            <Route path="/rates" element={<Rates />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AppLayout>
+      } />
+    </Routes>
   );
 }
 
