@@ -31,7 +31,7 @@ const mainItems = [
 ];
 
 const adminItems = [
-  { title: "Admin", url: "/admin", icon: Shield },
+  { title: "Admin Panel", url: "/admin", icon: Shield },
 ];
 
 export function AppSidebar() {
